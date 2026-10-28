@@ -1,0 +1,44 @@
+name: Policy Reporter Offline Bundle (K8s 1.25)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Helm and Python YAML parser
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          python3 -m pip install --user PyYAML==6.0.2
+      - name: Download pinned chart and render deployment
+        run: |
+          set -euo pipefail
+          mkdir -p out/images
+          helm repo add policy-reporter https://kyverno.github.io/policy-reporter
+          helm repo update
+          helm pull policy-reporter/policy-reporter --version 2.24.0 --destination out
+          helm template policy-reporter out/policy-reporter-2.24.0.tgz \
+            -n policy-reporter -f offline-values.yaml > out/upstream-rendered.yaml
+          python3 scripts/prepare-bundle.py out/upstream-rendered.yaml out
+          cp offline-values.yaml post-renderer.py README-FA.md out/
+      - name: Pull exactly the images in the rendered manifest (amd64)
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r source filename target; do
+            echo "Downloading $source"
+            docker pull --platform linux/amd64 "$source"
+            docker save -o "out/images/$filename" "$source"
+          done < out/images-map.tsv
+          (cd out && sha256sum images/*.tar > SHA256SUMS.txt)
+          (cd out && tar -czf ../policy-reporter-offline-bundle.tar.gz --exclude='upstream-rendered.yaml' .)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: policy-reporter-offline-bundle
+          path: policy-reporter-offline-bundle.tar.gz
+          retention-days: 14
+          compression-level: 0
