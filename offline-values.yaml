@@ -1,0 +1,10 @@
+# Pinned Policy Reporter Helm chart 2.24.0 (legacy chart structure)
+# Core REST API is enabled by the UI integration.
+ui:
+  enabled: true
+  plugins:
+    kyverno: true
+kyvernoPlugin:
+  enabled: true
+metrics:
+  enabled: false
