@@ -17,6 +17,7 @@ jobs:
           python3 -m pip install --user PyYAML==6.0.2
       - name: Download pinned chart and render deployment
         run: |
+          # Boos
           set -euo pipefail
           mkdir -p out/images
           helm repo add policy-reporter https://kyverno.github.io/policy-reporter
